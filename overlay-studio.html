@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Overlayer — Photo Overlay Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&family=Bebas+Neue&family=Caveat:wght@600;700&family=Archivo+Black&family=Courier+Prime:wght@700&family=Pacifico&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0f12;
+    --bg-outer:#08090b;
+    --panel:#17191f;
+    --panel-2:#1e2129;
+    --border:#2b2e36;
+    --text:#edeef2;
+    --muted:#8b909c;
+    --accent:#7c5cff;
+    --accent-soft:rgba(124,92,255,.16);
+    --accent-2:#ffb020;
+    --danger:#ff5c5c;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:9px;
+    --safe-b:env(safe-area-inset-bottom, 0px);
+    --safe-t:env(safe-area-inset-top, 0px);
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    overscroll-behavior:none;
+    background:var(--bg-outer);
+    -webkit-tap-highlight-color:transparent;
+  }
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    touch-action:manipulation;
+  }
+  button, input, select, textarea{ font-family:inherit; color:inherit; }
+  button{ background:none; border:none; cursor:pointer; }
+  h1,h2,h3,p{ margin:0; }
+
+  #app{
+    position:relative;
+    width:100%;
+    max-width:520px;
+    height:100vh;
+    height:100dvh;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  @media (min-width:560px){
+    #app{ border-left:1px solid var(--border); border-right:1px solid var(--border); box-shadow:0 0 80px rgba(0,0,0,.5); }
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:calc(14px + var(--safe-t)) 16px 12px;
+    border-bottom:1px solid var(--border);
+  }
+  .brand{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:.02em;
+  }
+  .brand span{ color:var(--accent); }
+  .btn{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:9px 16px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    white-space:nowrap;
+  }
+  .btn-accent{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-accent:disabled{ background:var(--panel-2); border-color:var(--border); color:var(--muted); cursor:not-allowed; }
+  .btn-ghost{ background:transparent; border-color:var(--border); }
+  .btn.full{ display:block; width:100%; text-align:center; margin-top:10px; }
+  .danger-text{ color:var(--danger); }
+  .topbar-actions{ display:flex; align-items:center; gap:8px; }
+  .icon-round{ width:34px; height:34px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; }
+
+  /* ---------- Intro / help modal ---------- */
+  .modal-backdrop{
+    position:absolute; inset:0; z-index:50;
+    background:rgba(6,7,9,.72);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .modal-backdrop.hidden{ display:none; }
+  .modal-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:22px 20px; max-width:360px; width:100%;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+    max-height:calc(100% - 20px); overflow-y:auto;
+  }
+  .modal-title{ font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:6px; }
+  .modal-sub{ font-size:13.5px; color:var(--muted); line-height:1.5; margin-bottom:14px; }
+  .modal-steps{ list-style:none; margin:0 0 14px; padding:0; display:flex; flex-direction:column; gap:11px; }
+  .modal-steps li{ display:flex; gap:10px; align-items:flex-start; font-size:13.5px; line-height:1.45; }
+  .step-num{
+    flex:0 0 auto; width:20px; height:20px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .modal-note{ font-size:12.5px; color:var(--muted); background:var(--panel-2); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:16px; line-height:1.5; }
+
+  /* ---------- Stage ---------- */
+  #stageWrap{
+    flex:1 1 auto;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    overflow:hidden;
+    background:
+      linear-gradient(45deg, #14151a 25%, transparent 25%) -12px 0/24px 24px,
+      linear-gradient(-45deg, #14151a 25%, transparent 25%) -12px 0/24px 24px,
+      linear-gradient(45deg, transparent 75%, #14151a 75%) -12px 0/24px 24px,
+      linear-gradient(-45deg, transparent 75%, #14151a 75%) -12px 0/24px 24px,
+      var(--bg);
+  }
+  #stage{
+    position:relative;
+    flex:0 0 auto;
+    border-radius:var(--radius-md);
+    overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+    touch-action:none;
+    user-select:none;
+    background:#000;
+  }
+  #stage.empty{ aspect-ratio:4/3; width:min(100%, 420px); height:auto; }
+  #baseImg{
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:fill; display:block; pointer-events:none; -webkit-user-drag:none;
+  }
+  #emptyState{
+    position:absolute; inset:0; display:flex; flex-direction:column; gap:14px;
+    align-items:center; justify-content:center; text-align:center; padding:24px;
+    border:1.5px dashed var(--border);
+  }
+  #emptyState p{ color:var(--muted); font-size:14px; max-width:220px; line-height:1.5; }
+  #overlayLayer{ position:absolute; inset:0; }
+
+  .overlay{
+    position:absolute;
+    left:0; top:0;
+    touch-action:none;
+    user-select:none;
+    cursor:grab;
+    white-space:pre-wrap;
+    line-height:1.25;
+  }
+  .overlay-image{ display:block; }
+  .overlay-image img{ display:block; pointer-events:none; -webkit-user-drag:none; }
+  .overlay.selected{ outline:2px dashed var(--accent); outline-offset:6px; }
+
+  .handle{
+    display:none;
+    position:absolute;
+    width:30px; height:30px;
+    border-radius:50%;
+    background:var(--accent);
+    color:#fff;
+    align-items:center; justify-content:center;
+    font-size:14px;
+    touch-action:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.4);
+    cursor:pointer;
+  }
+  .overlay.selected .handle{ display:flex; }
+  .handle-resize{ right:-15px; bottom:-15px; }
+  .handle-rotate{ top:-38px; left:50%; transform:translateX(-50%); background:var(--panel-2); border:1px solid var(--border); }
+
+  /* ---------- Selection bar ---------- */
+  .selection-bar{
+    flex:0 0 auto;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 14px; background:var(--panel); border-top:1px solid var(--border);
+  }
+  .selection-bar.hidden{ display:none; }
+  .sel-label{ font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  .sel-actions{ display:flex; gap:6px; }
+  .sel-actions button{
+    width:36px; height:36px; border-radius:10px; background:var(--panel-2);
+    border:1px solid var(--border); font-size:15px; display:flex; align-items:center; justify-content:center;
+  }
+  .sel-close{ color:var(--danger); }
+
+  /* ---------- Sheet ---------- */
+  .sheet{
+    flex:0 0 auto;
+    max-height:0;
+    overflow:hidden;
+    background:var(--panel);
+    border-top-left-radius:var(--radius-lg);
+    border-top-right-radius:var(--radius-lg);
+    border-top:1px solid var(--border);
+    transition:max-height .28s ease;
+  }
+  @media (prefers-reduced-motion:reduce){ .sheet{ transition:none; } }
+  .sheet.open{ max-height:46vh; }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background:var(--border); margin:10px auto 2px; }
+  .sheet-body{ overflow-y:auto; max-height:calc(46vh - 16px); padding:6px 16px 20px; }
+
+  .panel-section{ padding:14px 0; border-bottom:1px solid var(--border); }
+  .panel-section:last-child{ border-bottom:none; }
+  .panel-title{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
+  .hint{ font-size:13px; color:var(--muted); line-height:1.5; }
+
+  .text-input{
+    width:100%; resize:vertical; min-height:44px;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:10px 12px; font-size:15px; color:var(--text);
+  }
+  .text-input:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+
+  .gallery-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:4px; }
+  .thumb{
+    position:relative; aspect-ratio:1; border-radius:var(--radius-sm);
+    background-size:cover; background-position:center; border:2px solid transparent;
+    background-color:var(--panel-2);
+  }
+  .thumb.active{ border-color:var(--accent); }
+  .thumb.add-tile{ display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--muted); border:1.5px dashed var(--border); }
+  .thumb-del{
+    position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%;
+    background:rgba(0,0,0,.65); color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center;
+  }
+
+  .row-wrap{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+  .chip{
+    padding:8px 14px; border-radius:999px; background:var(--panel-2); border:1px solid var(--border);
+    font-size:13px; color:var(--text);
+  }
+  .chip.active{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .toggle-chip{ min-width:40px; text-align:center; }
+
+  .swatch-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; align-items:center; }
+  .swatch{ width:28px; height:28px; border-radius:50%; border:2px solid var(--border); padding:0; }
+  .swatch.active{ border-color:var(--accent); }
+  .swatch-custom{ padding:0; overflow:hidden; }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
+  .toggle-label{ font-size:14px; }
+  .switch{ position:relative; display:inline-block; width:42px; height:24px; flex:0 0 auto; }
+  .switch input{ opacity:0; width:0; height:0; position:absolute; }
+  .switch-slider{ position:absolute; inset:0; background:var(--panel-2); border:1px solid var(--border); border-radius:999px; transition:.15s; }
+  .switch-slider::before{ content:""; position:absolute; width:18px; height:18px; left:2px; top:2px; background:var(--muted); border-radius:50%; transition:.15s; }
+  .switch input:checked + .switch-slider{ background:var(--accent-soft); border-color:var(--accent); }
+  .switch input:checked + .switch-slider::before{ transform:translateX(18px); background:var(--accent); }
+
+  .range-row{ margin-bottom:10px; }
+  .range-top{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:4px; }
+  .range-row input[type=range]{ width:100%; accent-color:var(--accent); }
+
+  .select-input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:9px 10px; font-size:14px; margin-bottom:10px; appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 18px) center,calc(100% - 13px) center;
+    background-size:5px 5px,5px 5px; background-repeat:no-repeat;
+  }
+
+  input[type=checkbox]{ accent-color:var(--accent); }
+
+  .layer-list{ display:flex; flex-direction:column; gap:6px; }
+  .layer-row{
+    display:flex; align-items:center; gap:10px; padding:8px; border-radius:var(--radius-sm);
+    background:var(--panel-2); border:1px solid transparent;
+  }
+  .layer-row.active{ border-color:var(--accent); }
+  .layer-badge{
+    flex:0 0 auto; width:28px; height:28px; border-radius:7px; background:var(--panel);
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--muted);
+  }
+  .layer-label{ flex:1 1 auto; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-actions{ display:flex; gap:4px; }
+  .icon-btn{ width:28px; height:28px; border-radius:7px; background:var(--panel); font-size:11px; display:flex; align-items:center; justify-content:center; }
+
+  /* ---------- Dock ---------- */
+  .dock{
+    flex:0 0 auto;
+    display:flex;
+    border-top:1px solid var(--border);
+    background:var(--panel);
+    padding-bottom:var(--safe-b);
+  }
+  .dock-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:9px 4px 8px; font-size:10.5px; color:var(--muted); font-weight:600;
+  }
+  .dock-btn span:first-child{ font-size:18px; line-height:1; }
+  .dock-btn.active{ color:var(--accent); }
+
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">OVER<span>LAY</span></div>
+    <div class="topbar-actions">
+      <button id="helpBtn" class="btn btn-ghost icon-round" aria-label="How to use this">?</button>
+      <button id="downloadBtn" class="btn btn-accent" disabled>⬇ Save photo</button>
+    </div>
+  </header>
+
+  <div id="introModal" class="modal-backdrop">
+    <div class="modal-card">
+      <h2 class="modal-title">Welcome to Overlayer</h2>
+      <p class="modal-sub">Stack text and pictures on top of a photo, then save the result. Here's the flow:</p>
+      <ol class="modal-steps">
+        <li><span class="step-num">1</span><span><b>Photo</b> tab — add your background photo first.</span></li>
+        <li><span class="step-num">2</span><span><b>Text</b> or <b>Overlay</b> tab — add something to place on top of it.</span></li>
+        <li><span class="step-num">3</span><span>Drag the new layer to move it, pull the corner dot ⤡ to resize, and the top dot ↻ to rotate.</span></li>
+        <li><span class="step-num">4</span><span>Use the layer's panel to adjust color, outline, shadow, or blending so it stands out.</span></li>
+        <li><span class="step-num">5</span><span>Tap <b>Save photo</b> up top when you're happy with it.</span></li>
+      </ol>
+      <p class="modal-note">Tip: only things you add via <b>Text</b>/<b>Overlay</b> are draggable — the background photo itself stays fixed.</p>
+      <button id="introCloseBtn" class="btn btn-accent full">Got it</button>
+    </div>
+  </div>
+
+  <main id="stageWrap">
+    <div id="stage" class="empty">
+      <img id="baseImg" alt="">
+      <div id="emptyState">
+        <p>Add a photo, then stack text or pictures on top of it.</p>
+        <button id="emptyAddBtn" class="btn btn-accent">+ Add a photo</button>
+      </div>
+      <div id="overlayLayer"></div>
+    </div>
+  </main>
+
+  <div id="selectionBar" class="selection-bar hidden">
+    <span id="selLabel" class="sel-label">Text</span>
+    <div class="sel-actions">
+      <button data-act="back" title="Send backward">▼</button>
+      <button data-act="front" title="Bring forward">▲</button>
+      <button data-act="dup" title="Duplicate">⧉</button>
+      <button data-act="del" title="Delete">🗑</button>
+      <button data-act="close" class="sel-close" title="Deselect">✕</button>
+    </div>
+  </div>
+
+  <div id="sheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div id="sheetBody" class="sheet-body"></div>
+  </div>
+
+  <nav class="dock">
+    <button class="dock-btn" data-tab="photo"><span>🖼</span><span>Photo</span></button>
+    <button class="dock-btn" data-tab="text"><span>T</span><span>Text</span></button>
+    <button class="dock-btn" data-tab="image"><span>🌄</span><span>Overlay</span></button>
+    <button class="dock-btn" data-tab="layers"><span>☰</span><span>Layers</span></button>
+  </nav>
+
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple hidden>
+<canvas id="exportCanvas" hidden></canvas>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============== constants ============== */
+  var FONT_OPTIONS = [
+    { label:'Grotesk', family:"'Space Grotesk', sans-serif" },
+    { label:'Inter',   family:"'Inter', sans-serif" },
+    { label:'Playfair',family:"'Playfair Display', serif" },
+    { label:'Bebas',   family:"'Bebas Neue', sans-serif" },
+    { label:'Caveat',  family:"'Caveat', cursive" },
+    { label:'Archivo', family:"'Archivo Black', sans-serif" },
+    { label:'Courier', family:"'Courier Prime', monospace" },
+    { label:'Pacifico',family:"'Pacifico', cursive" },
+    { label:'Mono',    family:"'JetBrains Mono', monospace" }
+  ];
+  var BLEND_MODES = [
+    { value:'normal', label:'Normal' },
+    { value:'multiply', label:'Multiply' },
+    { value:'screen', label:'Screen' },
+    { value:'overlay', label:'Overlay' },
+    { value:'darken', label:'Darken' },
+    { value:'lighten', label:'Lighten' },
+    { value:'difference', label:'Difference' },
+    { value:'exclusion', label:'Exclusion' },
+    { value:'color-dodge', label:'Color Dodge' },
+    { value:'color-burn', label:'Color Burn' },
+    { value:'hard-light', label:'Hard Light' },
+    { value:'soft-light', label:'Soft Light' }
+  ];
+  var QUICK_COLORS = ['#ffffff','#000000','#ff5c5c','#ffb020','#7c5cff','#4ee1d6','#2ecc71'];
+
+  /* ============== state ============== */
+  var gallery = [];         // {id, src, naturalWidth, naturalHeight}
+  var baseImage = null;     // gallery-item-shaped object currently on stage
+  var overlays = [];        // ordered back -> front
+  var selectedId = null;
+  var activeSheet = null;   // 'photo' | 'text' | 'image' | 'layers' | null
+  var uploadPurpose = 'gallery';
+  var uidCounter = 0;
+  var activeDrag = null;
+
+  function uid(){ uidCounter += 1; return 'o' + uidCounter; }
+  function clamp(v,a,b){ return Math.min(b, Math.max(a, v)); }
+  function fmtPct(v){ return Math.round(v*100) + '%'; }
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(text != null) e.textContent = text;
+    return e;
+  }
+  function hexToRgba(hex, a){
+    var h = String(hex).replace('#','');
+    if(h.length===3){ h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; }
+    var r = parseInt(h.substring(0,2),16) || 0;
+    var g = parseInt(h.substring(2,4),16) || 0;
+    var b = parseInt(h.substring(4,6),16) || 0;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  /* ============== dom refs ============== */
+  var stageEl = document.getElementById('stage');
+  var stageWrapEl = document.getElementById('stageWrap');
+  var baseImgEl = document.getElementById('baseImg');
+  var emptyStateEl = document.getElementById('emptyState');
+  var overlayLayerEl = document.getElementById('overlayLayer');
+  var downloadBtn = document.getElementById('downloadBtn');
+  var selectionBarEl = document.getElementById('selectionBar');
+  var selLabelEl = document.getElementById('selLabel');
+  var sheetEl = document.getElementById('sheet');
+  var sheetBody = document.getElementById('sheetBody');
+  var fileInputEl = document.getElementById('fileInput');
+  var exportCanvasEl = document.getElementById('exportCanvas');
+  var dockButtons = Array.prototype.slice.call(document.querySelectorAll('.dock-btn'));
+
+  /* ============== small UI builders ============== */
+  function section(title){
+    var s = el('div','panel-section');
+    s.appendChild(el('h3','panel-title',title));
+    return s;
+  }
+  function labeledRange(label, min, max, step, value, onChange){
+    var wrap = el('div','range-row');
+    var top = el('div','range-top');
+    var lab = el('span',null,label);
+    var val = el('span',null, fmtPct(value));
+    top.appendChild(lab); top.appendChild(val);
+    var input = document.createElement('input');
+    input.type = 'range'; input.min = min; input.max = max; input.step = step; input.value = value;
+    input.addEventListener('input', function(){
+      var v = parseFloat(input.value);
+      onChange(v);
+      val.textContent = fmtPct(v);
+    });
+    wrap.appendChild(top); wrap.appendChild(input);
+    return wrap;
+  }
+  function refreshActive(row, activeEl, cls){
+    var items = row.querySelectorAll('.'+cls);
+    for(var i=0;i<items.length;i++){ items[i].classList.remove('active'); }
+    if(activeEl) activeEl.classList.add('active');
+  }
+  function colorSwatchRow(current, onPick){
+    var row = el('div','swatch-row');
+    QUICK_COLORS.forEach(function(c){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (c.toLowerCase()===String(current).toLowerCase() ? ' active' : '');
+      b.style.background = c;
+      b.addEventListener('click', function(){
+        onPick(c);
+        refreshActive(row, b, 'swatch');
+        custom.value = c;
+      });
+      row.appendChild(b);
+    });
+    var custom = document.createElement('input');
+    custom.type = 'color';
+    custom.value = /^#/.test(current) ? current : '#ffffff';
+    custom.className = 'swatch swatch-custom';
+    custom.addEventListener('input', function(){
+      onPick(custom.value);
+      refreshActive(row, null, 'swatch');
+    });
+    row.appendChild(custom);
+    return row;
+  }
+  function toggleRow(label, checked, onChange){
+    var row = el('div','toggle-row');
+    var lab = el('span','toggle-label', label);
+    var sw = document.createElement('label'); sw.className = 'switch';
+    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = checked;
+    cb.addEventListener('change', function(){ onChange(cb.checked); });
+    var slider = el('span','switch-slider');
+    sw.appendChild(cb); sw.appendChild(slider);
+    row.appendChild(lab); row.appendChild(sw);
+    return row;
+  }
+  function toggleChip(label, active, onChange, styleFn){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip toggle-chip' + (active ? ' active' : '');
+    b.textContent = label;
+    if(styleFn) styleFn(b);
+    var state = active;
+    b.addEventListener('click', function(){
+      state = !state;
+      b.classList.toggle('active', state);
+      onChange(state);
+    });
+    return b;
+  }
+  function blendSelect(value, onChange){
+    var sel = document.createElement('select');
+    sel.className = 'select-input';
+    BLEND_MODES.forEach(function(m){
+      var o = document.createElement('option');
+      o.value = m.value; o.textContent = m.label;
+      if(m.value === value) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function(){ onChange(sel.value); });
+    return sel;
+  }
+
+  /* ============== stage sizing (explicit, not CSS-guesswork) ============== */
+  var STAGE_PAD = 18; // keep in sync with #stageWrap padding
+  function fitStageToContainer(){
+    if(!baseImage) return;
+    var availW = Math.max(60, stageWrapEl.clientWidth - STAGE_PAD*2);
+    var availH = Math.max(60, stageWrapEl.clientHeight - STAGE_PAD*2);
+    var nw = baseImage.naturalWidth, nh = baseImage.naturalHeight;
+    var scale = Math.min(availW/nw, availH/nh);
+    stageEl.style.width = (nw*scale) + 'px';
+    stageEl.style.height = (nh*scale) + 'px';
+    layoutAll();
+  }
+
+  /* ============== overlay geometry / rendering ============== */
+  function stageWidthPx(){ return stageEl.getBoundingClientRect().width; }
+
+  function layoutOverlay(ov, retry){
+    var sw = stageWidthPx();
+    if(!sw){
+      // stage isn't measurable yet (e.g. a layout/animation frame hasn't settled) -
+      // self-heal on the next frame instead of leaving the overlay stuck at 0,0.
+      if(!retry){ requestAnimationFrame(function(){ layoutOverlay(ov, true); }); }
+      return;
+    }
+    var e = ov.el;
+    e.style.left = (ov.cx*sw) + 'px';
+    e.style.top = (ov.cy*sw) + 'px';
+    e.style.transform = 'translate(-50%,-50%) rotate(' + ov.rotation + 'deg)';
+    e.style.opacity = ov.opacity;
+    e.style.mixBlendMode = ov.blend;
+    e.style.display = ov.hidden ? 'none' : '';
+
+    if(ov.type === 'image'){
+      e.style.width = (ov.w*sw) + 'px';
+      e.style.height = (ov.h*sw) + 'px';
+      ov.imgEl.style.width = '100%';
+      ov.imgEl.style.height = '100%';
+      ov.imgEl.style.objectFit = 'fill';
+      ov.imgEl.style.filter = ov.shadowEnabled
+        ? 'drop-shadow(0 0 ' + (ov.shadowBlur*sw) + 'px ' + ov.shadowColor + ')'
+        : 'none';
+    } else {
+      if(e.firstChild) e.firstChild.nodeValue = ov.content;
+      e.style.fontFamily = ov.fontFamily;
+      e.style.fontSize = (ov.fontSize*sw) + 'px';
+      e.style.color = ov.color;
+      e.style.fontWeight = ov.bold ? '700' : '500';
+      e.style.fontStyle = ov.italic ? 'italic' : 'normal';
+      e.style.webkitTextStroke = ov.strokeEnabled ? ((ov.strokeWidth*sw) + 'px ' + ov.strokeColor) : '0px transparent';
+      e.style.textShadow = ov.shadowEnabled
+        ? ('0 ' + Math.max(1, ov.fontSize*sw*0.02) + 'px ' + (ov.shadowBlur*sw) + 'px ' + ov.shadowColor)
+        : 'none';
+      if(ov.bgEnabled){
+        e.style.background = hexToRgba(ov.bgColor, ov.bgOpacity);
+        e.style.padding = (ov.fontSize*sw*0.28) + 'px ' + (ov.fontSize*sw*0.42) + 'px';
+        e.style.borderRadius = (ov.fontSize*sw*0.16) + 'px';
+      } else {
+        e.style.background = 'transparent';
+        e.style.padding = '0px';
+        e.style.borderRadius = '0px';
+      }
+      e.style.maxWidth = (sw*0.92) + 'px';
+    }
+  }
+  function layoutAll(){ overlays.forEach(layoutOverlay); }
+
+  function createOverlayEl(ov){
+    var wrap = document.createElement('div');
+    wrap.className = 'overlay overlay-' + ov.type;
+    wrap.dataset.id = ov.id;
+
+    if(ov.type === 'image'){
+      var img = document.createElement('img');
+      img.src = ov.src; img.draggable = false; img.alt = '';
+      wrap.appendChild(img);
+      ov.imgEl = img;
+    } else {
+      var tn = document.createTextNode(ov.content);
+      wrap.appendChild(tn);
+      ov.textNode = tn;
+    }
+
+    var rh = el('div','handle handle-resize','⤡');
+    var rot = el('div','handle handle-rotate','↻');
+    wrap.appendChild(rh);
+    wrap.appendChild(rot);
+
+    wrap.addEventListener('pointerdown', function(e){
+      if(e.target === rh || e.target === rot) return;
+      onPointerDown(e, ov, 'move');
+    });
+    rh.addEventListener('pointerdown', function(e){ onPointerDown(e, ov, 'resize'); });
+    rot.addEventListener('pointerdown', function(e){ onPointerDown(e, ov, 'rotate'); });
+
+    ov.el = wrap;
+    overlayLayerEl.appendChild(wrap);
+  }
+
+  /* ============== pointer interactions ============== */
+  function localPoint(ov, clientX, clientY, rect, sw){
+    var cxPx = ov.cx*sw, cyPx = ov.cy*sw;
+    var px = clientX - rect.left - cxPx;
+    var py = clientY - rect.top - cyPx;
+    var rad = -ov.rotation * Math.PI/180;
+    return {
+      x: px*Math.cos(rad) - py*Math.sin(rad),
+      y: px*Math.sin(rad) + py*Math.cos(rad)
+    };
+  }
+
+  function onPointerDown(e, ov, type){
+    e.preventDefault();
+    e.stopPropagation();
+    selectOverlay(ov.id);
+    var sw = stageWidthPx();
+    var rect = stageEl.getBoundingClientRect();
+    activeDrag = {
+      type: type, ov: ov, sw: sw, rect: rect,
+      startClientX: e.clientX, startClientY: e.clientY,
+      startCx: ov.cx, startCy: ov.cy,
+      startW: ov.w, startH: ov.h,
+      startFontSize: ov.fontSize,
+      startRotation: ov.rotation
+    };
+    if(type === 'resize'){
+      var lp = localPoint(ov, e.clientX, e.clientY, rect, sw);
+      activeDrag.startRadius = Math.max(10, Math.hypot(lp.x, lp.y));
+    } else if(type === 'rotate'){
+      var cxPx = ov.cx*sw, cyPx = ov.cy*sw;
+      activeDrag.startAngle = Math.atan2(e.clientY-rect.top-cyPx, e.clientX-rect.left-cxPx) * 180/Math.PI;
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerMove(e){
+    if(!activeDrag) return;
+    var d = activeDrag, ov = d.ov;
+    if(d.type === 'move'){
+      var dx = (e.clientX - d.startClientX) / d.sw;
+      var dy = (e.clientY - d.startClientY) / d.sw;
+      ov.cx = d.startCx + dx;
+      ov.cy = d.startCy + dy;
+    } else if(d.type === 'resize'){
+      var lp = localPoint(ov, e.clientX, e.clientY, d.rect, d.sw);
+      var r = Math.max(10, Math.hypot(lp.x, lp.y));
+      var ratio = r / d.startRadius;
+      if(ov.type === 'image'){
+        ov.w = clamp(d.startW*ratio, 0.03, 3);
+        ov.h = clamp(d.startH*ratio, 0.03, 3);
+      } else {
+        ov.fontSize = clamp(d.startFontSize*ratio, 0.012, 0.6);
+      }
+    } else if(d.type === 'rotate'){
+      var cxPx = ov.cx*d.sw, cyPx = ov.cy*d.sw;
+      var curAngle = Math.atan2(e.clientY-d.rect.top-cyPx, e.clientX-d.rect.left-cxPx) * 180/Math.PI;
+      ov.rotation = d.startRotation + (curAngle - d.startAngle);
+    }
+    layoutOverlay(ov);
+  }
+
+  function onPointerUp(){
+    activeDrag = null;
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerUp);
+    if(activeSheet === 'text' || activeSheet === 'image') renderSheet();
+  }
+
+  stageEl.addEventListener('pointerdown', function(e){
+    if(e.target === stageEl || e.target === baseImgEl || e.target === overlayLayerEl || e.target.closest('#emptyState')){
+      selectOverlay(null);
+    }
+  });
+
+  /* ============== overlay CRUD ============== */
+  function getSelected(){
+    for(var i=0;i<overlays.length;i++){ if(overlays[i].id === selectedId) return overlays[i]; }
+    return null;
+  }
+  function getById(id){
+    for(var i=0;i<overlays.length;i++){ if(overlays[i].id === id) return overlays[i]; }
+    return null;
+  }
+
+  function addTextOverlay(content){
+    if(!baseImage) return null;
+    var ov = {
+      id: uid(), type:'text',
+      cx:0.5, cy:0.5, rotation:0, opacity:1, blend:'normal', hidden:false,
+      content: content,
+      fontFamily: FONT_OPTIONS[0].family,
+      fontSize:0.09, color:'#ffffff', bold:true, italic:false,
+      strokeEnabled:false, strokeColor:'#000000', strokeWidth:0.014,
+      shadowEnabled:true, shadowColor:'#000000', shadowBlur:0.018,
+      bgEnabled:false, bgColor:'#000000', bgOpacity:0.45
+    };
+    createOverlayEl(ov);
+    overlays.push(ov);
+    layoutOverlay(ov);
+    return ov;
+  }
+
+  function addImageOverlay(item){
+    if(!baseImage) return null;
+    var w = 0.35;
+    var ov = {
+      id: uid(), type:'image',
+      cx:0.5, cy:0.5, rotation:0, opacity:1, blend:'normal', hidden:false,
+      src: item.src, naturalW: item.naturalWidth, naturalH: item.naturalHeight,
+      w: w, h: w * (item.naturalHeight/item.naturalWidth),
+      shadowEnabled:false, shadowColor:'#000000', shadowBlur:0.02
+    };
+    createOverlayEl(ov);
+    overlays.push(ov);
+    layoutOverlay(ov);
+    return ov;
+  }
+
+  function bringFront(id){
+    var i = overlays.findIndex(function(o){ return o.id===id; });
+    if(i<0) return;
+    var ov = overlays.splice(i,1)[0];
+    overlays.push(ov);
+    overlayLayerEl.appendChild(ov.el);
+    if(activeSheet==='layers') renderSheet();
+  }
+  function sendBack(id){
+    var i = overlays.findIndex(function(o){ return o.id===id; });
+    if(i<0) return;
+    var ov = overlays.splice(i,1)[0];
+    overlays.unshift(ov);
+    overlayLayerEl.insertBefore(ov.el, overlayLayerEl.firstChild);
+    if(activeSheet==='layers') renderSheet();
+  }
+  function duplicateOverlay(id){
+    var src = getById(id);
+    if(!src) return;
+    var ov;
+    if(src.type === 'text'){
+      ov = addTextOverlay(src.content);
+      ov.cx = src.cx+0.03; ov.cy = src.cy+0.03; ov.rotation = src.rotation;
+      ov.opacity = src.opacity; ov.blend = src.blend;
+      ov.fontFamily = src.fontFamily; ov.fontSize = src.fontSize; ov.color = src.color;
+      ov.bold = src.bold; ov.italic = src.italic;
+      ov.strokeEnabled = src.strokeEnabled; ov.strokeColor = src.strokeColor; ov.strokeWidth = src.strokeWidth;
+      ov.shadowEnabled = src.shadowEnabled; ov.shadowColor = src.shadowColor; ov.shadowBlur = src.shadowBlur;
+      ov.bgEnabled = src.bgEnabled; ov.bgColor = src.bgColor; ov.bgOpacity = src.bgOpacity;
+    } else {
+      ov = addImageOverlay({ src:src.src, naturalWidth:src.naturalW, naturalHeight:src.naturalH });
+      ov.cx = src.cx+0.03; ov.cy = src.cy+0.03; ov.rotation = src.rotation;
+      ov.opacity = src.opacity; ov.blend = src.blend; ov.w = src.w; ov.h = src.h;
+      ov.shadowEnabled = src.shadowEnabled; ov.shadowColor = src.shadowColor; ov.shadowBlur = src.shadowBlur;
+    }
+    layoutOverlay(ov);
+    selectOverlay(ov.id);
+    if(activeSheet==='layers') renderSheet();
+  }
+  function deleteOverlay(id){
+    var i = overlays.findIndex(function(o){ return o.id===id; });
+    if(i<0) return;
+    overlays[i].el.remove();
+    overlays.splice(i,1);
+    if(selectedId===id) selectOverlay(null);
+    else if(activeSheet==='layers') renderSheet();
+  }
+  function toggleHidden(id){
+    var ov = getById(id);
+    if(!ov) return;
+    ov.hidden = !ov.hidden;
+    layoutOverlay(ov);
+    if(activeSheet==='layers') renderSheet();
+  }
+
+  /* ============== selection ============== */
+  function selectOverlay(id){
+    selectedId = id;
+    overlays.forEach(function(o){ o.el.classList.toggle('selected', o.id===id); });
+    updateSelectionBar();
+    if(id){
+      var ov = getById(id);
+      if((activeSheet==='text' || activeSheet==='image') && ov){
+        activeSheet = ov.type==='text' ? 'text' : 'image';
+        setActiveDockTab(activeSheet);
+      }
+    }
+    if(activeSheet) renderSheet();
+  }
+  function updateSelectionBar(){
+    if(!selectedId){ selectionBarEl.classList.add('hidden'); return; }
+    var ov = getSelected();
+    if(!ov){ selectionBarEl.classList.add('hidden'); return; }
+    selectionBarEl.classList.remove('hidden');
+    selLabelEl.textContent = ov.type==='text' ? 'Text layer' : 'Image layer';
+  }
+  selectionBarEl.addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn || !selectedId) return;
+    var act = btn.dataset.act;
+    if(act==='front') bringFront(selectedId);
+    else if(act==='back') sendBack(selectedId);
+    else if(act==='dup') duplicateOverlay(selectedId);
+    else if(act==='del') deleteOverlay(selectedId);
+    else if(act==='close') selectOverlay(null);
+  });
+
+  /* ============== base image / gallery ============== */
+  function updateEmptyState(){
+    emptyStateEl.style.display = baseImage ? 'none' : 'flex';
+    stageEl.classList.toggle('empty', !baseImage);
+  }
+  function setBaseImage(item){
+    baseImage = item;
+    baseImgEl.src = item.src;
+    downloadBtn.disabled = false;
+    updateEmptyState();
+    fitStageToContainer();
+  }
+  function resetAll(){
+    baseImage = null;
+    overlays.forEach(function(o){ o.el.remove(); });
+    overlays = [];
+    selectedId = null;
+    baseImgEl.removeAttribute('src');
+    stageEl.style.width = '';
+    stageEl.style.height = '';
+    downloadBtn.disabled = true;
+    updateEmptyState();
+    updateSelectionBar();
+    renderSheet();
+  }
+  function removeGalleryItem(id){
+    gallery = gallery.filter(function(g){ return g.id!==id; });
+    renderSheet();
+  }
+  function handleFiles(fileList, purpose){
+    Array.prototype.forEach.call(fileList, function(file){
+      if(!file.type || file.type.indexOf('image/') !== 0) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        var img = new Image();
+        img.onload = function(){
+          var item = { id: uid(), src: reader.result, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight };
+          gallery.push(item);
+          var isFirst = !baseImage;
+          if(purpose === 'gallery' && isFirst) setBaseImage(item);
+          if(purpose === 'overlay'){
+            var ov = addImageOverlay(item);
+            if(ov) selectOverlay(ov.id);
+          }
+          if(activeSheet==='photo' || activeSheet==='image') renderSheet();
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  fileInputEl.addEventListener('change', function(e){
+    handleFiles(e.target.files, uploadPurpose);
+    fileInputEl.value = '';
+  });
+  document.getElementById('emptyAddBtn').addEventListener('click', function(){
+    uploadPurpose = 'gallery';
+    fileInputEl.click();
+  });
+
+  /* ============== sheet / dock ============== */
+  function setActiveDockTab(tab){
+    dockButtons.forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
+  }
+  function openSheet(){ sheetEl.classList.add('open'); }
+  function closeSheet(){ sheetEl.classList.remove('open'); activeSheet=null; setActiveDockTab(null); }
+
+  dockButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var tab = btn.dataset.tab;
+      if(activeSheet === tab){
+        closeSheet();
+      } else {
+        activeSheet = tab;
+        openSheet();
+        setActiveDockTab(tab);
+        renderSheet();
+      }
+    });
+  });
+
+  function renderSheet(){
+    sheetBody.innerHTML = '';
+    if(!activeSheet) return;
+    if(activeSheet === 'photo') buildPhotoTab();
+    else if(activeSheet === 'text') buildTextTab();
+    else if(activeSheet === 'image') buildImageTab();
+    else if(activeSheet === 'layers') buildLayersTab();
+  }
+
+  function buildPhotoTab(){
+    var wrap = section('Your photos');
+    var grid = el('div','gallery-grid');
+    gallery.forEach(function(item){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'thumb' + (baseImage && baseImage.id===item.id ? ' active' : '');
+      b.style.backgroundImage = 'url(' + item.src + ')';
+      b.addEventListener('click', function(){ setBaseImage(item); });
+      var del = el('span','thumb-del','✕');
+      del.addEventListener('click', function(ev){ ev.stopPropagation(); removeGalleryItem(item.id); });
+      b.appendChild(del);
+      grid.appendChild(b);
+    });
+    var addTile = document.createElement('button');
+    addTile.type = 'button'; addTile.className = 'thumb add-tile'; addTile.textContent = '+';
+    addTile.addEventListener('click', function(){ uploadPurpose='gallery'; fileInputEl.click(); });
+    grid.appendChild(addTile);
+    wrap.appendChild(grid);
+    if(baseImage){
+      var startOver = el('button','btn btn-ghost full danger-text','Start over');
+      startOver.addEventListener('click', function(){
+        if(confirm('Remove the photo and all overlays?')) resetAll();
+      });
+      wrap.appendChild(startOver);
+    }
+    sheetBody.appendChild(wrap);
+  }
+
+  function buildTextTab(){
+    var sel = getSelected();
+    if(sel && sel.type === 'text'){ buildTextEditor(sel); return; }
+    var wrap = section('Add text');
+    if(!baseImage){
+      wrap.appendChild(el('p','hint','Add a photo first — then you can stack text on top of it.'));
+      sheetBody.appendChild(wrap);
+      return;
+    }
+    var ta = document.createElement('textarea');
+    ta.className = 'text-input'; ta.rows = 2; ta.placeholder = 'Type your text…';
+    wrap.appendChild(ta);
+    var btn = el('button','btn btn-accent full','Add text');
+    btn.addEventListener('click', function(){
+      var val = ta.value.trim() || 'Your text';
+      var ov = addTextOverlay(val);
+      if(ov) selectOverlay(ov.id);
+    });
+    wrap.appendChild(btn);
+    sheetBody.appendChild(wrap);
+  }
+
+  function buildTextEditor(ov){
+    var secContent = section('Content');
+    var ta = document.createElement('textarea');
+    ta.className = 'text-input'; ta.rows = 2; ta.value = ov.content;
+    ta.addEventListener('input', function(){ ov.content = ta.value; layoutOverlay(ov); });
+    secContent.appendChild(ta);
+    sheetBody.appendChild(secContent);
+
+    var secFont = section('Font');
+    var fontRow = el('div','row-wrap');
+    FONT_OPTIONS.forEach(function(f){
+      var b = el('button','chip' + (ov.fontFamily===f.family ? ' active' : ''), f.label);
+      b.type = 'button';
+      b.style.fontFamily = f.family;
+      b.addEventListener('click', function(){
+        ov.fontFamily = f.family;
+        layoutOverlay(ov);
+        refreshActive(fontRow, b, 'chip');
+      });
+      fontRow.appendChild(b);
+    });
+    secFont.appendChild(fontRow);
+    secFont.appendChild(labeledRange('Size', 0.02, 0.4, 0.002, ov.fontSize, function(v){ ov.fontSize=v; layoutOverlay(ov); }));
+    sheetBody.appendChild(secFont);
+
+    var secStyle = section('Style');
+    var styleRow = el('div','row-wrap');
+    styleRow.appendChild(toggleChip('B', ov.bold, function(v){ ov.bold=v; layoutOverlay(ov); }, function(b){ b.style.fontWeight='800'; }));
+    styleRow.appendChild(toggleChip('I', ov.italic, function(v){ ov.italic=v; layoutOverlay(ov); }, function(b){ b.style.fontStyle='italic'; }));
+    secStyle.appendChild(styleRow);
+    secStyle.appendChild(colorSwatchRow(ov.color, function(c){ ov.color=c; layoutOverlay(ov); }));
+    sheetBody.appendChild(secStyle);
+
+    var secVis = section('Make it pop');
+    secVis.appendChild(toggleRow('Outline', ov.strokeEnabled, function(v){ ov.strokeEnabled=v; layoutOverlay(ov); renderSheet(); }));
+    if(ov.strokeEnabled){
+      secVis.appendChild(colorSwatchRow(ov.strokeColor, function(c){ ov.strokeColor=c; layoutOverlay(ov); }));
+      secVis.appendChild(labeledRange('Thickness', 0.004, 0.05, 0.002, ov.strokeWidth, function(v){ ov.strokeWidth=v; layoutOverlay(ov); }));
+    }
+    secVis.appendChild(toggleRow('Shadow', ov.shadowEnabled, function(v){ ov.shadowEnabled=v; layoutOverlay(ov); renderSheet(); }));
+    if(ov.shadowEnabled){
+      secVis.appendChild(colorSwatchRow(ov.shadowColor, function(c){ ov.shadowColor=c; layoutOverlay(ov); }));
+      secVis.appendChild(labeledRange('Blur', 0, 0.06, 0.002, ov.shadowBlur, function(v){ ov.shadowBlur=v; layoutOverlay(ov); }));
+    }
+    secVis.appendChild(toggleRow('Background box', ov.bgEnabled, function(v){ ov.bgEnabled=v; layoutOverlay(ov); renderSheet(); }));
+    if(ov.bgEnabled){
+      secVis.appendChild(colorSwatchRow(ov.bgColor, function(c){ ov.bgColor=c; layoutOverlay(ov); }));
+      secVis.appendChild(labeledRange('Box opacity', 0, 1, 0.02, ov.bgOpacity, function(v){ ov.bgOpacity=v; layoutOverlay(ov); }));
+    }
+    sheetBody.appendChild(secVis);
+
+    var secBlend = section('Blend with photo');
+    secBlend.appendChild(blendSelect(ov.blend, function(v){ ov.blend=v; layoutOverlay(ov); }));
+    secBlend.appendChild(labeledRange('Opacity', 0.05, 1, 0.02, ov.opacity, function(v){ ov.opacity=v; layoutOverlay(ov); }));
+    sheetBody.appendChild(secBlend);
+
+    var secReset = section('Transform');
+    var resetBtn = el('button','btn btn-ghost full','Reset rotation');
+    resetBtn.addEventListener('click', function(){ ov.rotation = 0; layoutOverlay(ov); });
+    secReset.appendChild(resetBtn);
+    sheetBody.appendChild(secReset);
+  }
+
+  function buildImageTab(){
+    var sel = getSelected();
+    if(sel && sel.type === 'image'){ buildImageEditor(sel); return; }
+    var wrap = section('Add image overlay');
+    if(!baseImage){
+      wrap.appendChild(el('p','hint','Add a photo first — then you can add a picture on top of it.'));
+      sheetBody.appendChild(wrap);
+      return;
+    }
+    if(gallery.length){
+      var grid = el('div','gallery-grid');
+      gallery.forEach(function(item){
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'thumb';
+        b.style.backgroundImage = 'url(' + item.src + ')';
+        b.addEventListener('click', function(){
+          var ov = addImageOverlay(item);
+          if(ov) selectOverlay(ov.id);
+        });
+        grid.appendChild(b);
+      });
+      wrap.appendChild(grid);
+    }
+    var addBtn = el('button','btn btn-accent full','+ Upload image');
+    addBtn.addEventListener('click', function(){ uploadPurpose='overlay'; fileInputEl.click(); });
+    wrap.appendChild(addBtn);
+    sheetBody.appendChild(wrap);
+  }
+
+  function buildImageEditor(ov){
+    var secShadow = section('Make it pop');
+    secShadow.appendChild(toggleRow('Drop shadow', ov.shadowEnabled, function(v){ ov.shadowEnabled=v; layoutOverlay(ov); renderSheet(); }));
+    if(ov.shadowEnabled){
+      secShadow.appendChild(colorSwatchRow(ov.shadowColor, function(c){ ov.shadowColor=c; layoutOverlay(ov); }));
+      secShadow.appendChild(labeledRange('Blur', 0, 0.08, 0.002, ov.shadowBlur, function(v){ ov.shadowBlur=v; layoutOverlay(ov); }));
+    }
+    sheetBody.appendChild(secShadow);
+
+    var secBlend = section('Blend with photo');
+    secBlend.appendChild(blendSelect(ov.blend, function(v){ ov.blend=v; layoutOverlay(ov); }));
+    secBlend.appendChild(labeledRange('Opacity', 0.05, 1, 0.02, ov.opacity, function(v){ ov.opacity=v; layoutOverlay(ov); }));
+    sheetBody.appendChild(secBlend);
+
+    var secReset = section('Transform');
+    var resetBtn = el('button','btn btn-ghost full','Reset size & rotation');
+    resetBtn.addEventListener('click', function(){
+      ov.rotation = 0; ov.w = 0.35; ov.h = 0.35 * (ov.naturalH/ov.naturalW);
+      layoutOverlay(ov);
+    });
+    secReset.appendChild(resetBtn);
+    sheetBody.appendChild(secReset);
+  }
+
+  function buildLayersTab(){
+    var wrap = section('Layers');
+    if(!overlays.length){
+      wrap.appendChild(el('p','hint','No layers yet. Add text or an image overlay from the tabs below.'));
+      sheetBody.appendChild(wrap);
+      return;
+    }
+    var list = el('div','layer-list');
+    for(var i=overlays.length-1; i>=0; i--){
+      (function(ov){
+        var row = el('div','layer-row' + (ov.id===selectedId ? ' active' : ''));
+        row.addEventListener('click', function(){ selectOverlay(ov.id); });
+        var badge = el('span','layer-badge', ov.type==='text' ? 'T' : 'IMG');
+        var label = el('span','layer-label', ov.type==='text' ? (ov.content.slice(0,26) || 'Text') : 'Image');
+        var actions = el('div','layer-actions');
+        function mk(txt, fn, title){
+          var b = document.createElement('button');
+          b.type='button'; b.className='icon-btn'; b.textContent=txt; b.title=title;
+          b.addEventListener('click', function(ev){ ev.stopPropagation(); fn(); });
+          return b;
+        }
+        actions.appendChild(mk('▲', function(){ bringFront(ov.id); }, 'Bring forward'));
+        actions.appendChild(mk('▼', function(){ sendBack(ov.id); }, 'Send backward'));
+        actions.appendChild(mk('⧉', function(){ duplicateOverlay(ov.id); }, 'Duplicate'));
+        actions.appendChild(mk(ov.hidden?'Show':'Hide', function(){ toggleHidden(ov.id); }, 'Toggle visibility'));
+        actions.appendChild(mk('🗑', function(){ deleteOverlay(ov.id); }, 'Delete'));
+        row.appendChild(badge); row.appendChild(label); row.appendChild(actions);
+        list.appendChild(row);
+      })(overlays[i]);
+    }
+    wrap.appendChild(list);
+    sheetBody.appendChild(wrap);
+  }
+
+  /* ============== export ============== */
+  function roundRectPath(ctx,x,y,w,h,r){
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+  function triggerDownload(url){
+    var a = document.createElement('a');
+    a.href = url; a.download = 'overlay-' + Date.now() + '.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  downloadBtn.addEventListener('click', function(){
+    if(!baseImage) return;
+    downloadBtn.disabled = true;
+    var prevText = downloadBtn.textContent;
+    downloadBtn.textContent = 'Saving…';
+
+    var ready = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+    ready.then(function(){
+      try{
+        var canvas = exportCanvasEl;
+        canvas.width = baseImage.naturalWidth;
+        canvas.height = baseImage.naturalHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(baseImgEl, 0, 0, canvas.width, canvas.height);
+        var nw = canvas.width;
+
+        overlays.forEach(function(ov){
+          if(ov.hidden) return;
+          ctx.save();
+          var cxPx = ov.cx*nw, cyPx = ov.cy*nw;
+          ctx.translate(cxPx, cyPx);
+          ctx.rotate(ov.rotation * Math.PI/180);
+          ctx.globalAlpha = ov.opacity;
+          ctx.globalCompositeOperation = (ov.blend === 'normal') ? 'source-over' : ov.blend;
+          if(ov.shadowEnabled){
+            ctx.shadowColor = ov.shadowColor;
+            ctx.shadowBlur = ov.shadowBlur*nw;
+          }
+          if(ov.type === 'image'){
+            var w = ov.w*nw, h = ov.h*nw;
+            ctx.drawImage(ov.imgEl, -w/2, -h/2, w, h);
+          } else {
+            var fontPx = ov.fontSize*nw;
+            var weight = ov.bold ? '700' : '500';
+            var style = ov.italic ? 'italic ' : '';
+            ctx.font = style + weight + ' ' + fontPx + 'px ' + ov.fontFamily;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            var lines = String(ov.content).split('\n');
+            var lineHeight = fontPx*1.25;
+            var totalH = lineHeight*lines.length;
+            var maxW = 0;
+            lines.forEach(function(l){ maxW = Math.max(maxW, ctx.measureText(l).width); });
+
+            if(ov.bgEnabled){
+              ctx.save();
+              ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+              ctx.globalAlpha = ov.opacity*ov.bgOpacity;
+              ctx.fillStyle = ov.bgColor;
+              var padX = fontPx*0.42, padY = fontPx*0.3;
+              roundRectPath(ctx, -maxW/2-padX, -totalH/2-padY, maxW+padX*2, totalH+padY*2, fontPx*0.18);
+              ctx.fill();
+              ctx.restore();
+            }
+            lines.forEach(function(line, i){
+              var ly = -totalH/2 + lineHeight*(i+0.5);
+              if(ov.strokeEnabled){
+                ctx.lineWidth = ov.strokeWidth*nw;
+                ctx.strokeStyle = ov.strokeColor;
+                ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+                ctx.strokeText(line, 0, ly);
+              }
+              ctx.fillStyle = ov.color;
+              ctx.fillText(line, 0, ly);
+            });
+          }
+          ctx.restore();
+        });
+
+        if(canvas.toBlob){
+          canvas.toBlob(function(blob){
+            if(!blob){ triggerDownload(canvas.toDataURL('image/png')); }
+            else {
+              var url = URL.createObjectURL(blob);
+              triggerDownload(url);
+              setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+            }
+            downloadBtn.disabled = false; downloadBtn.textContent = prevText;
+          }, 'image/png');
+        } else {
+          triggerDownload(canvas.toDataURL('image/png'));
+          downloadBtn.disabled = false; downloadBtn.textContent = prevText;
+        }
+      } catch(err){
+        console.error(err);
+        alert('Could not save the image. Please try again.');
+        downloadBtn.disabled = false; downloadBtn.textContent = prevText;
+      }
+    });
+  });
+
+  /* ============== resize handling ============== */
+  if(window.ResizeObserver){
+    var ro = new ResizeObserver(function(){ fitStageToContainer(); });
+    ro.observe(stageWrapEl);
+  } else {
+    window.addEventListener('resize', fitStageToContainer);
+    window.addEventListener('orientationchange', fitStageToContainer);
+  }
+
+  /* ============== intro / help modal ============== */
+  var introModalEl = document.getElementById('introModal');
+  var helpBtnEl = document.getElementById('helpBtn');
+  var introCloseBtnEl = document.getElementById('introCloseBtn');
+  function openIntro(){ introModalEl.classList.remove('hidden'); }
+  function closeIntro(){ introModalEl.classList.add('hidden'); }
+  introCloseBtnEl.addEventListener('click', closeIntro);
+  helpBtnEl.addEventListener('click', openIntro);
+  introModalEl.addEventListener('click', function(e){ if(e.target === introModalEl) closeIntro(); });
+  openIntro();
+
+  updateEmptyState();
+})();
+</script>
+</body>
+</html>
